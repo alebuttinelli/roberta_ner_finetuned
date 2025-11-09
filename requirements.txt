@@ -1,0 +1,9 @@
+transformers
+datasets
+seqeval
+evaluate
+accelerate
+optuna
+torch
+numpy
+scikit-learn
