@@ -27,7 +27,7 @@ from transformers import (
     XLMRobertaConfig
 )
 
-# Import our custom model class
+# Import custom model class
 from model import RoBERTaforNER
 
 # Metrics
