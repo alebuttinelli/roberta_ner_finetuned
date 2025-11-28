@@ -6,34 +6,21 @@ This file contains the PyTorch class for the model.
 
 import torch
 import torch.nn as nn
-from transformers import BertPreTrainedModel, AutoModel, XLMRobertaConfig
+from transformers import BertPreTrainedModel, AutoModel
+from transformers.modeling_outputs import TokenClassifierOutput
 
 class RoBERTaforNER(BertPreTrainedModel):
     """
     Custom XLM-RoBERTa model for Token Classification (NER) with an optional
     BiLSTM layer.
-
-    This model consists of a pre-trained RoBERTa base, an optional BiLSTM
-    layer to capture sequential context, and a final linear classification
-    head to output logits for each token class.
     """
 
-    def __init__(self, config, num_labels, use_bilstm = True, lstm_hidden_size = 1024, num_lstm_layers = 2):
-        """
-        Initialises the model.
-
-        Args:
-            config (BertConfig): The configuration class from Transformers.
-            num_labels (int): The number of labels for classification (e.g., 9 for CoNLL-2003).
-            use_bilstm (bool, optional): Whether to use the BiLSTM layer. Defaults to True.
-            lstm_hidden_size (int, optional): Hidden size of the BiLSTM. Defaults to 1024.
-            num_lstm_layers (int, optional): Number of layers in the BiLSTM. Defaults to 2.
-        """
+    def __init__(self, config, num_labels, use_bilstm=True, lstm_hidden_size=1024, num_lstm_layers=2):
         super().__init__(config)
         self.num_labels = num_labels
         self.use_bilstm = use_bilstm
 
-        # RoBERTa Base Model
+        # Load the base model
         self.roberta = AutoModel.from_pretrained(config._name_or_path, config=config, add_pooling_layer=False)
 
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
@@ -50,13 +37,12 @@ class RoBERTaforNER(BertPreTrainedModel):
             classifier_input_size = lstm_hidden_size * 2
         else:
             self.bilstm = None
-            # The input to the classifier is the RoBERTa hidden size
             classifier_input_size = config.hidden_size
 
         # Classifier Head
         self.classifier = nn.Linear(classifier_input_size, self.num_labels)
 
-        # Initialize weights
+        # Initialize weights (inherited function)
         self.init_weights()
 
     def forward(
@@ -72,11 +58,8 @@ class RoBERTaforNER(BertPreTrainedModel):
         output_hidden_states=None,
         return_dict=None,
     ):
-        """
-        Forward pass of the model.
-        """
-
-        # Get RoBERTa's output (last hidden state)
+        
+        # Base Model Pass
         outputs = self.roberta(
             input_ids,
             attention_mask=attention_mask,
@@ -85,38 +68,30 @@ class RoBERTaforNER(BertPreTrainedModel):
             head_mask=head_mask,
             inputs_embeds=inputs_embeds,
             output_attentions=output_attentions,
-            output_hidden_states=True,
+            output_hidden_states=output_hidden_states,
+            return_dict=True,
         )
 
-        # Use the last hidden state
         sequence_output = outputs.last_hidden_state
-
-        # Apply dropout
         sequence_output = self.dropout(sequence_output)
 
+        # BiLSTM Pass (Optional)
         if self.use_bilstm and self.bilstm is not None:
-            # Get BiLSTM outputs
             lstm_out, _ = self.bilstm(sequence_output)
-            # Pass BiLSTM output to the classifier
             logits = self.classifier(lstm_out)
         else:
-            # Pass RoBERTa output directly to the classifier
             logits = self.classifier(sequence_output)
 
+        # Loss Calculation
         loss = None
-        # Calculate loss if labels are provided
         if labels is not None:
             loss_fct = nn.CrossEntropyLoss()
-            # Only compute loss on non-padded tokens
-            if attention_mask is not None:
-                active_loss = attention_mask.view(-1) == 1
-                active_logits = logits.view(-1, self.num_labels)
-                active_labels = torch.where(
-                    active_loss, labels.view(-1), torch.tensor(loss_fct.ignore_index).type_as(labels)
-                )
-                loss = loss_fct(active_logits, active_labels)
-            else:
-                loss = loss_fct(logits.view(-1, self.num_labels), labels.view(-1))
+            loss = loss_fct(logits.view(-1, self.num_labels), labels.view(-1))
 
-        # Return a dictionary-like object
-        return (loss, logits) + outputs[2:]
+        # Return Standard Output Object
+        return TokenClassifierOutput(
+            loss=loss,
+            logits=logits,
+            hidden_states=outputs.hidden_states,
+            attentions=outputs.attentions,
+        )
