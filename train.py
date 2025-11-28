@@ -153,7 +153,7 @@ if __name__ == "__main__":
 
     parser.add_argument("--model_name", type=str, default="xlm-roberta-large", help="Base pre-trained model name.")
     parser.add_argument("--dataset_name", type=str, default="conll2003", help="Dataset name from Hugging Face Hub.")
-    parser.add_button("--output_dir", type=str, default="./ner-model", help="Directory to save the trained model.")
+    parser.add_argument("--output_dir", type=str, default="./ner-model", help="Directory to save the trained model.")
 
     parser.add_argument("--learning_rate", type=float, default=2e-5)
     parser.add_argument("--batch_size", type=int, default=8)
@@ -161,7 +161,7 @@ if __name__ == "__main__":
 
     parser.add_argument("--use_bilstm", action="store_true", help="Include this flag to use the BiLSTM layer.")
     parser.add_argument("--lstm_hidden_size", type=int, default=1024, help="Hidden size for the BiLSTM.")
-    parser.addD-argument("--lstm_layers", type=int, default=2, help="Number of layers for the BiLSTM.")
+    parser.add_argument("--lstm_layers", type=int, default=2, help="Number of layers for the BiLSTM.")
 
     args = parser.parse_args()
     main(args)
